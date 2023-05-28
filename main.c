@@ -4,7 +4,7 @@
 
 # define max_line 100 
 # define max_resource 100 
-
+# define max_row 100 
 
 void read_resources(char file_name [],int * resource_matric,int* size){
     FILE* filep; 
@@ -36,7 +36,9 @@ void read_resources(char file_name [],int * resource_matric,int* size){
 }
 
 
-void create_matrix(char file_name[], int(**matrix),int row_size,int col_size){
+void create_matrix(char file_name[], int(**matrix),int* num_processes,int col_size){
+    // col_size -> number of resources ;
+    // row_size -> num_processes ; 
     FILE *filep ; 
     filep= fopen(file_name,"r");
     char line [max_line];
@@ -60,6 +62,7 @@ void create_matrix(char file_name[], int(**matrix),int row_size,int col_size){
                 a++;
             } 
             if (line[i] == ' ' || ((col_counter+1) == col_size)) {
+                //printf("row counter: %d , last column: %d \n",row_counter,((col_counter+1)==col_size));
                 num[a] = '\0';
                 matrix[row_counter][col_counter]=atoi(num);
                 a = 0;
@@ -69,7 +72,7 @@ void create_matrix(char file_name[], int(**matrix),int row_size,int col_size){
         }
     row_counter++ ;        
     }
-
+    *num_processes=row_counter;
     fclose(filep);
 
 }
@@ -109,17 +112,17 @@ struct matrix{
     int (**allocation_matrix);
     int (**need_matrix) ; 
 };
-void initialize_matrix_struct(struct matrix* matrix_store, int size) {
-    matrix_store->resource_matrix = (int*)malloc(size * sizeof(int));
+void initialize_matrix_struct(struct matrix* matrix_store, int size_rows, int size_cols) {
+    matrix_store->resource_matrix = (int*)malloc(size_cols * sizeof(int));
 
     // Allocate memory for 2D matrices
-    matrix_store->request_matrix = (int**)malloc(size * sizeof(int*));
-    matrix_store->allocation_matrix = (int**)malloc(size * sizeof(int*));
-    matrix_store->need_matrix = (int**)malloc(size * sizeof(int*));
-    for (int i = 0; i < size; i++) {
-        matrix_store->request_matrix[i] = (int*)malloc(size * sizeof(int));
-        matrix_store->allocation_matrix[i] = (int*)malloc(size * sizeof(int));
-        matrix_store->need_matrix[i] = (int*)malloc(size * sizeof(int));
+    matrix_store->request_matrix = (int**)malloc(size_rows * sizeof(int*));
+    matrix_store->allocation_matrix = (int**)malloc(size_rows * sizeof(int*));
+    matrix_store->need_matrix = (int**)malloc(size_rows * sizeof(int*));
+    for (int i = 0; i < size_rows; i++) {
+        matrix_store->request_matrix[i] = (int*)malloc(size_cols* sizeof(int));
+        matrix_store->allocation_matrix[i] = (int*)malloc(size_cols * sizeof(int));
+        matrix_store->need_matrix[i] = (int*)malloc(size_cols * sizeof(int));
     }
 }
 void free_matrix(struct matrix matrix_store,int size){
@@ -198,21 +201,22 @@ int check_unsafe_state(struct matrix* matrix_store, int size){
 }
 int main() {
     int resource_matrix [max_resource]; 
-    int* size = malloc(1*sizeof(int)); 
+    int* size = malloc(1*sizeof(int)); // size of the resources 
+    int* size_process = malloc(1*sizeof(int));  // size of the processes 
     read_resources("resources.txt",resource_matrix,size);
-    int** allocation_matrix= (int**)malloc(*size * sizeof(int*));
-    // allocate memory 
-    for (int i = 0; i < *size; i++) {
+    // allocate memory for rows 
+    int** allocation_matrix= (int**)malloc(max_row * sizeof(int*));
+    // allocate memory for columns 
+    for (int i = 0; i <max_row; i++) {
         allocation_matrix[i] = (int*)malloc(*size * sizeof(int));
     }
-    //printf("Allocation Matrix: ");
-    create_matrix("allocations.txt",allocation_matrix,*size,*size) ;
-    int** request_matrix= (int**)malloc(*size * sizeof(int*));
+    create_matrix("allocations.txt",allocation_matrix,size_process,*size) ;
+    int** request_matrix= (int**)malloc(*size_process * sizeof(int*));
     // allocate memory 
-    for (int i = 0; i < *size; i++) {
+    for (int i = 0; i < *size_process; i++) {
         request_matrix[i] = (int*)malloc(*size * sizeof(int));
     }
-    create_matrix("requests.txt",request_matrix,*size,*size); 
+    create_matrix("requests.txt",request_matrix,size_process,*size); 
     //print_2d_matrix(request_matrix,*size,*size) ;
     int ** need_matrix=(int**)malloc(*size*sizeof(int*)); 
     for (int i = 0; i < *size; i++) {
@@ -223,13 +227,15 @@ int main() {
             need_matrix[i][j]= request_matrix[i][j]-allocation_matrix[i][j];
         }
     }
-    //printf("Need Matrix: \n") ;
-   // print_2d_matrix(need_matrix,*size,*size) ;
+
     print(request_matrix,allocation_matrix,*size,*size);
     printf("---------------------------------------------------------\n");
+
+    // initialize and fill matrix store struct that contains all the matrices ;
     struct matrix matrix_store ; 
-    initialize_matrix_struct(&matrix_store,*size); 
+    initialize_matrix_struct(&matrix_store,*size_process,*size); 
     fill_matrix(&matrix_store,resource_matrix,request_matrix,allocation_matrix,*size); 
     print_matrix_store(&matrix_store,*size) ; 
+    
     return 0;
 }
