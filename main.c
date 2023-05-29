@@ -215,10 +215,20 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
     int path_counter=0 ; 
     int checker= 1 ;
     int i=0 ;
-    //int check_counter=0 ; 
-    for(int i=0 ;i<num_processes;i++){
-        printf("Loop beginning: %d , and availability %d \n", i,matrix_store->is_waiting[i]); 
+    int check_counter=0 ; // increment by one whenever a process is found to execute, and break the loop when the counter==total processes
+    int infinite_loop_checker=0 ; // check infinite loop 
+    int first_index=1 ; 
+    //for(int i=0 ;i<num_processes;i++){
+    int loop_counter=0  ; 
+    while(1){
+        if( ((i==infinite_loop_checker) || (check_counter==num_processes)) && (first_index==0)){
+            // again the same index without finding any process, or all the processes executed
+            break ;
+        }
+        //printf("Loop beginning: %d , and availability %d \n", i,matrix_store->is_waiting[i]); 
         if(matrix_store->is_waiting[i]==0){
+            i+=1 ;
+            i= i%num_processes; 
             continue;
         }
         int checker_2= 1; 
@@ -236,20 +246,21 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
             }
         }
         if(checker==1){
+            first_index=0 ; 
             path[path_counter] = i ;
             path_counter++;  
             update_resource_matrix(matrix_store,num_resource,i);
-            printf("row index: %d\n",i); 
-            printf("Updated resource Matrix: \n") ;
-            for(int t=0;t<num_resource;t++){
-                printf("%d, " ,matrix_store->resource_matrix[t]); 
+            printf("Print ressource matrix \n"); 
+            for(int k=0;k<num_resource;k++){
+                printf("%d ",matrix_store->resource_matrix[k]);
             }
-            printf("row non-availability: %d",matrix_store->is_waiting[i]);
-            printf("\n"); 
-            i=-1 ;
-            //check_counter++;
-            //i= (i%num_processes); 
+            infinite_loop_checker= i ; // the index of the last process ;
+            //printf("Process: P%d\n",infinite_loop_checker); 
+            check_counter++;
         }
+            i++ ;
+            i= (i%num_processes); 
+        
     }
     // iterate over the matrix store is waiting array and check the states of the processses
     // if there is a waiting process return false; 
@@ -268,8 +279,9 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
 void run_banker(struct matrix* matrix_store, int num_processes, int num_resource){
     if (check_unsafe_state(matrix_store,num_processes,num_resource)==1){
         printf("EXIT SUCCESS! \n"); 
+        return ; 
     }
-    printf("EXIT FAILURE !\n") ;
+    printf("System is an Unsafe State. Deadlock may occur ! !\n") ;
 }
 int main() {
     int resource_matrix [max_resource]; 
@@ -320,6 +332,7 @@ int main() {
     print_matrix_store(&matrix_store,*size_process,*size) ; 
     
     printf("-------------------------------------------------------\n"); 
-    check_unsafe_state(&matrix_store,*size_process,*size) ;
+    //check_unsafe_state(&matrix_store,*size_process,*size) ;
+    run_banker(&matrix_store,*size_process,*size);
     return 0;
 }
