@@ -62,7 +62,6 @@ void create_matrix(char file_name[], int(**matrix),int* num_processes,int col_si
                 a++;
             } 
             if (line[i] == ' ' || ((col_counter+1) == col_size)) {
-                //printf("row counter: %d , last column: %d \n",row_counter,((col_counter+1)==col_size));
                 num[a] = '\0';
                 matrix[row_counter][col_counter]=atoi(num);
                 a = 0;
@@ -84,6 +83,7 @@ void print_2d_matrix(int** matrix,int row_counter,int col_counter){
         printf("\n");
     }
 }
+
 void print(int **request_matrix, int** allocation_matrix,int row_size,int col_size ){
     // print the necessary info for the corresponding process
     int num_processes= row_size ; 
@@ -104,7 +104,12 @@ void print(int **request_matrix, int** allocation_matrix,int row_size,int col_si
         printf("\n");
     }
 }
-
+void free_2d(int (**array_2d), int row_size){
+    for(int i=0;i<row_size;i++){
+        free(array_2d[i]) ;
+    }
+    free(array_2d); 
+}
 
 struct matrix{
     int (*resource_matrix) ; 
@@ -113,6 +118,7 @@ struct matrix{
     int (**need_matrix) ; 
     int (*is_waiting) ; 
 };
+// allocate memory for matrix store without spesific content 
 void initialize_matrix_struct(struct matrix* matrix_store, int size_rows, int size_cols) {
 
     // allocate memory for resource matrix
@@ -128,6 +134,7 @@ void initialize_matrix_struct(struct matrix* matrix_store, int size_rows, int si
         matrix_store->need_matrix[i] = (int*)malloc(size_cols * sizeof(int));
     }
 }
+// deallocate memory for the matrix
 void free_matrix(struct matrix matrix_store,int size){
     free(matrix_store.resource_matrix);
     for (int i = 0; i < size; i++) {
@@ -140,6 +147,7 @@ void free_matrix(struct matrix matrix_store,int size){
     free(matrix_store.allocation_matrix);
     free(matrix_store.need_matrix);
 }
+// fill the matrix store with the content fetched from given txt files 
 void fill_matrix(  
     struct matrix* matrix_store,  
     int (*resource_matrix),
@@ -160,19 +168,15 @@ void fill_matrix(
         }
     }
 }
+// function to print out according to the first task in the description
 void print_matrix_store (struct matrix* matrix_store,int size_row,int size_col){
-    printf("Size row: %d , size col: %d ",size_row,size_col);
-
     for(int i=0; i<size_row;i++){
         printf("Information for Process : P%d:\n",(i+1)); 
         printf("Allocated Resources: ");
-        /*
         for(int j=0;j<size_col;j++){
             printf("R%d:",(j+1));
             printf("%d ",matrix_store->allocation_matrix[i][j]);
         }
-        */
-       
         printf("\n");
         printf("Resource Request: ");
         for(int j=0;j<size_col;j++){
@@ -201,9 +205,8 @@ void update_resource_matrix(struct matrix* matrix_store,int num_resource,int ind
 
 // function to print out the path; 
 void print_path(int* path, int size){
-    printf("Path: "); 
     for(int i=0 ;i<size;i++){
-        printf("P%d ,",path[i]);
+        printf("P%d ",path[i]);
     }
     printf("\n"); 
 }
@@ -217,14 +220,14 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
     int check_counter=0 ; // increment by one whenever a process is found to execute, and break the loop when the counter==total processes
     int infinite_loop_checker=0 ; // check infinite loop 
     int first_index=1 ; 
-    //for(int i=0 ;i<num_processes;i++){
     int loop_counter=0  ; 
+
     while(1){
         if( ((i==infinite_loop_checker) || (check_counter==num_processes)) && (first_index==0)){
             // again the same index without finding any process, or all the processes executed
             break ;
         }
-        //printf("Loop beginning: %d , and availability %d \n", i,matrix_store->is_waiting[i]); 
+
         if(matrix_store->is_waiting[i]==0){
             i+=1 ;
             i= i%num_processes; 
@@ -249,11 +252,6 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
             path[path_counter] = i ;
             path_counter++;  
             update_resource_matrix(matrix_store,num_resource,i);
-            /*printf("Print ressource matrix \n"); 
-            for(int k=0;k<num_resource;k++){
-                printf("%d ",matrix_store->resource_matrix[k]);
-            }
-            */
             infinite_loop_checker= i ; // the index of the last process ;
             check_counter++;
         }
@@ -278,10 +276,23 @@ int check_unsafe_state(struct matrix* matrix_store, int num_processes,int num_re
 
 void run_banker(struct matrix* matrix_store, int num_processes, int num_resource){
     if (check_unsafe_state(matrix_store,num_processes,num_resource)==1){
-        printf("EXIT SUCCESS! \n"); 
         return ; 
     }
-    printf("System is an Unsafe State. Deadlock may occur ! !\n") ;
+
+    printf("System is an Unsafe State. ");
+    int counter=0 ; 
+    for(int i=0;i<num_processes;i++){
+        if(matrix_store->is_waiting[i]==1){
+            if(counter==0){
+                printf("P%d",(i+1)); 
+                counter=1; 
+            }
+            else {
+                printf(" and P%d",(i+1));
+            }
+        }
+    }
+    printf(" is/are the cause of the deadlock ! "); 
 }
 int main() {
     int resource_matrix [max_resource]; 
@@ -321,19 +332,15 @@ int main() {
             need_matrix[i][j]= request_matrix[i][j]-allocation_matrix[i][j];
         }
     }
-    // print out the first desired output ; 
-    print(request_matrix,allocation_matrix,*size_process,*size);
-    printf("---------------------------------------------------------\n");
 
     // initialize and fill matrix store struct that contains all the matrices ;
     struct matrix matrix_store ; 
     initialize_matrix_struct(&matrix_store,*size_process,*size); 
-    fill_matrix(&matrix_store,resource_matrix,request_matrix,allocation_matrix,*size_process,*size); 
-
+    fill_matrix(&matrix_store,resource_matrix,request_matrix,allocation_matrix,*size_process,*size);     
+    free_2d(allocation_matrix,*size_process);
+    free_2d(request_matrix,*size_process);
     print_matrix_store(&matrix_store,*size_process,*size) ; 
-    
-    printf("-------------------------------------------------------\n"); 
-    //check_unsafe_state(&matrix_store,*size_process,*size) ;
+    printf("\n\n\n\n"); 
     run_banker(&matrix_store,*size_process,*size);
     free_matrix(matrix_store,*size_process);
     return 0;
